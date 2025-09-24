@@ -1,0 +1,16 @@
+{
+  "name": "dariaos-ota-server",
+  "version": "0.1.0",
+  "description": "OTA server for DariaOS with admin UI and delta/full update support.",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "busboy": "1.6.0",
+    "express": "^5.0.0"
+  }
+}
