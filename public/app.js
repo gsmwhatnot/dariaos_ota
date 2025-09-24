@@ -2253,13 +2253,13 @@ function resolveUrl(path) {
       return {
         label: version,
         data,
-        fill: true,
+        fill: false,
         tension: 0.3,
         borderWidth: 2,
         pointRadius: 0,
         borderColor: baseColor,
-        backgroundColor: withAlpha(baseColor, 0.25),
-        stack: 'versions',
+        backgroundColor: withAlpha(baseColor, 0.2),
+        stack: undefined,
         spanGaps: true
       };
     });
@@ -2281,14 +2281,12 @@ function resolveUrl(path) {
         },
         scales: {
           x: {
-            stacked: true,
             ticks: {
               maxRotation: 60,
               minRotation: 45
             }
           },
           y: {
-            stacked: true,
             beginAtZero: true,
             title: {
               display: true,
