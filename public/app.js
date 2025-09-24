@@ -1480,6 +1480,12 @@
     header.appendChild(selectors);
     card.appendChild(header);
 
+    const tzOffsetMinutes = new Date().getTimezoneOffset();
+    const offsetHours = Math.trunc(Math.abs(tzOffsetMinutes) / 60);
+    const offsetMinutes = Math.abs(tzOffsetMinutes) % 60;
+    const sign = tzOffsetMinutes <= 0 ? '+' : '-';
+    const formattedOffset = `${sign}${String(offsetHours).padStart(2, '0')}:${String(offsetMinutes).padStart(2, '0')}`;
+
     if (!state.builds.length) {
       const empty = document.createElement('p');
       empty.className = 'muted';
@@ -1490,7 +1496,7 @@
       table.className = 'table';
       const thead = document.createElement('thead');
       const headerRow = document.createElement('tr');
-      ['Incremental', 'Type', 'Publish', 'Mandatory', 'URL', 'Size', 'Updated', 'Actions'].forEach((label) => {
+      ['Incremental', 'OS Version', 'Publish', 'Mandatory', 'URL', 'Size', `Updated (${formattedOffset})`, 'Actions'].forEach((label) => {
         const th = document.createElement('th');
         th.textContent = label;
         headerRow.appendChild(th);
@@ -1503,7 +1509,11 @@
         const row = document.createElement('tr');
 
         const incremental = document.createElement('td');
-        incremental.innerHTML = `<span class="tag ${build.type}">${build.type}</span> ${build.payload.incremental}`;
+        let incrementalText = build.payload.incremental;
+        if (build.type === 'delta' && build.baseIncremental) {
+          incrementalText = `${build.baseIncremental} &gt; ${build.payload.incremental}`;
+        }
+        incremental.innerHTML = `<span class="tag ${build.type}">${build.type}</span> ${incrementalText}`;
         row.appendChild(incremental);
 
         const typeCell = document.createElement('td');
