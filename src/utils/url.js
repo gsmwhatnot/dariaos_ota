@@ -14,7 +14,7 @@ function normalizeDownloadUrl(url) {
   if (/^https?:\/\//i.test(trimmed)) {
     return trimmed;
   }
-  const base = basePath || '';
+  const base = config.baseUrl || basePath || '';
   const normalizedPath = normalizePath(trimmed);
   return base ? `${base}${normalizedPath}` : normalizedPath;
 }
