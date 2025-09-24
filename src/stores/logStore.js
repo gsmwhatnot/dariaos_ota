@@ -26,6 +26,9 @@ async function appendAdminLog(payload) {
 }
 
 async function appendDownloadLog(payload) {
+  if (payload && payload.partial) {
+    return;
+  }
   const filePath = buildLogPath('download');
   await fs.appendFile(filePath, formatEntry(payload), 'utf8');
 }
