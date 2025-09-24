@@ -21,10 +21,10 @@
     };
   }
 
-  const state = {
-    siteName: 'DariaOS OTA Console',
-    user: null,
-    view: 'dashboard',
+const state = {
+  siteName: 'DariaOS OTA Console',
+  user: null,
+  view: 'dashboard',
     loading: false,
     error: null,
     flash: null,
@@ -41,11 +41,24 @@
       data: null,
       loading: false
     },
-    users: {
-      list: [],
-      loading: false
-    }
-  };
+  users: {
+    list: [],
+    loading: false
+  }
+};
+
+const BASE_URL = (window.__BASE_URL__ || '').replace(/\/$/, '');
+
+function resolveUrl(path) {
+  if (!path) {
+    return BASE_URL || '';
+  }
+  if (/^https?:\/\//i.test(path)) {
+    return path;
+  }
+  const normalized = path.startsWith('/') ? path : `/${path}`;
+  return BASE_URL ? `${BASE_URL}${normalized}` : normalized;
+}
 
   const DEFAULT_REPORT_DAYS = 7;
   const MAX_REPORT_DAYS = 30;
@@ -592,8 +605,12 @@
       opts.body = JSON.stringify(opts.body);
     }
     let res;
+    let requestUrl = path;
+    if (typeof path === 'string') {
+      requestUrl = resolveUrl(path);
+    }
     try {
-      res = await fetch(path, opts);
+      res = await fetch(requestUrl, opts);
     } catch (err) {
       throw new Error(`Network error: ${err.message || err}`);
     }
@@ -1013,7 +1030,7 @@
     render();
 
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/api/firmware/upload');
+    xhr.open('POST', resolveUrl('/api/firmware/upload'));
 
     xhr.upload.addEventListener('progress', (event) => {
       if (event.lengthComputable) {

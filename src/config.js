@@ -10,7 +10,28 @@ function envInt(name, fallback) {
   return Number.isNaN(value) ? fallback : value;
 }
 
-const baseUrl = (process.env.BASE_URL || '').replace(/\/$/, '');
+function parseBaseUrl(raw) {
+  if (!raw) {
+    return { baseUrl: '', basePath: '' };
+  }
+  const trimmed = raw.trim().replace(/\/$/, '');
+  try {
+    const parsed = new URL(trimmed);
+    const pathname = parsed.pathname.replace(/\/$/, '');
+    return {
+      baseUrl: `${parsed.origin}${pathname}`,
+      basePath: pathname === '' ? '' : pathname
+    };
+  } catch (err) {
+    const normalizedPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    return {
+      baseUrl: normalizedPath,
+      basePath: normalizedPath === '/' ? '' : normalizedPath
+    };
+  }
+}
+
+const { baseUrl, basePath } = parseBaseUrl(process.env.BASE_URL || '');
 
 module.exports = {
   port: envInt('PORT', 8080),
@@ -18,6 +39,7 @@ module.exports = {
   siteName: process.env.SITE_NAME || 'DariaOS OTA Console',
   maximumDeltaDistance: envInt('MAXIMUM_DELTA_DISTANCE', 4),
   baseUrl,
+  basePath,
   sessionSecret: process.env.SESSION_SECRET || 'change-me-session-secret',
   appVersion: pkg.version || '0.0.0',
   defaultAdmin: {

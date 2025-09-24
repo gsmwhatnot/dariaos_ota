@@ -1,5 +1,7 @@
 const config = require('../config');
 
+const basePath = (config.basePath || '').replace(/\/$/, '');
+
 function normalizePath(path) {
   if (!path) return '';
   return path.startsWith('/') ? path : `/${path}`;
@@ -12,7 +14,7 @@ function normalizeDownloadUrl(url) {
   if (/^https?:\/\//i.test(trimmed)) {
     return trimmed;
   }
-  const base = config.baseUrl || '';
+  const base = basePath || '';
   const normalizedPath = normalizePath(trimmed);
   return base ? `${base}${normalizedPath}` : normalizedPath;
 }
