@@ -107,8 +107,7 @@ async function start() {
   registerUse(app, '/api/system', systemRouter);
 
   registerUse(app, '/api/v1', otaRouter);
-  registerUse(app, '/ota/api/v1', otaRouter);
-
+  
   registerGet(app, '/admin', (req, res) => {
     res.type('html').send(indexHtml);
   });
@@ -138,7 +137,7 @@ async function start() {
   app.use((req, res) => {
     const originalPath = req.path || '';
     const relativePath = stripBaseFromPath(originalPath) || originalPath;
-    const isApiPath = relativePath.startsWith('/api/') || relativePath.startsWith('/ota/api/v1') || relativePath.startsWith('/api/v1');
+    const isApiPath = relativePath.startsWith('/api/') || relativePath.startsWith('/api/v1');
     if (isApiPath) {
       res.status(404).json({ error: 'Not Found' });
       return;
