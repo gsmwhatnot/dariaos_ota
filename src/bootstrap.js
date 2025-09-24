@@ -38,10 +38,6 @@ async function bootstrap() {
   await ensureFile(path.join(config.paths.data, 'users.json'), JSON.stringify({ users: [] }, null, 2));
   await ensureFile(path.join(config.paths.data, 'report-cache.json'), JSON.stringify({ generatedAt: null, logMTime: 0, perCodename: {} }, null, 2));
   await ensureFile(path.join(config.paths.data, 'download-cache.json'), JSON.stringify({ generatedAt: null, logMTime: 0, totals: {}, daily: {} }, null, 2));
-  await ensureFile(path.join(config.paths.logs, 'api-access.jsonl'), '');
-  await ensureFile(path.join(config.paths.logs, 'admin-audit.jsonl'), '');
-  await ensureFile(path.join(config.paths.logs, 'download-access.jsonl'), '');
-
   await userStore.ensureDefaultAdmin();
 }
 

@@ -39,24 +39,7 @@ function parseTimestamp(entry) {
   return parsed;
 }
 
-async function buildReportCache(logPath) {
-  let logStat;
-  try {
-    logStat = await fsp.stat(logPath);
-  } catch (err) {
-    if (err.code === 'ENOENT') {
-      return {
-        generatedAt: new Date().toISOString(),
-        logMTime: 0,
-        perCodename: {}
-      };
-    }
-    throw err;
-  }
-
-  const summaryPerCodename = new Map(); // codename -> Map(serial -> { version, channel, timestamp })
-  const dailyPerCodename = new Map(); // codename -> Map(day -> Map(serial -> { version, timestamp }))
-
+async function processLogFile(logPath, summaryPerCodename, dailyPerCodename) {
   await new Promise((resolve, reject) => {
     const stream = fs.createReadStream(logPath, { encoding: 'utf8' });
     const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
@@ -101,6 +84,33 @@ async function buildReportCache(logPath) {
     rl.once('close', resolve);
     rl.once('error', reject);
   });
+}
+
+async function buildReportCache(logPaths) {
+  const summaryPerCodename = new Map(); // codename -> Map(serial -> { version, channel, timestamp })
+  const dailyPerCodename = new Map(); // codename -> Map(day -> Map(serial -> { version, timestamp }))
+
+  const paths = Array.isArray(logPaths) ? logPaths : [logPaths];
+  for (const logPath of paths) {
+    if (!logPath) continue;
+    try {
+      await fsp.access(logPath);
+    } catch (err) {
+      if (err.code === 'ENOENT') {
+        continue;
+      }
+      throw err;
+    }
+
+    try {
+      await processLogFile(logPath, summaryPerCodename, dailyPerCodename);
+    } catch (err) {
+      if (err.code === 'ENOENT') {
+        continue;
+      }
+      throw err;
+    }
+  }
 
   const perCodename = {};
 
@@ -136,7 +146,6 @@ async function buildReportCache(logPath) {
 
   return {
     generatedAt: new Date().toISOString(),
-    logMTime: logStat.mtimeMs,
     perCodename
   };
 }

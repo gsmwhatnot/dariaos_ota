@@ -5,38 +5,72 @@ const { readJson, writeJson } = require('../utils/jsonFile');
 const { buildReportCache } = require('../utils/reportAggregator');
 
 const CACHE_PATH = path.join(config.paths.data, 'report-cache.json');
-const LOG_PATH = path.join(config.paths.logs, 'api-access.jsonl');
+const LOG_PREFIX = 'api_';
+
+async function listLogFiles() {
+  let entries;
+  try {
+    entries = await fs.readdir(config.paths.logs);
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      return [];
+    }
+    throw err;
+  }
+  const candidates = entries.filter((name) => name.startsWith(LOG_PREFIX) && name.endsWith('.jsonl'));
+  candidates.sort();
+
+  const stats = [];
+  for (const name of candidates) {
+    const fullPath = path.join(config.paths.logs, name);
+    try {
+      const stat = await fs.stat(fullPath);
+      stats.push({ path: fullPath, mtimeMs: stat.mtimeMs });
+    } catch (err) {
+      if (err.code !== 'ENOENT') {
+        throw err;
+      }
+    }
+  }
+  return stats;
+}
+
+function buildSignature(files) {
+  if (!files.length) return '';
+  return files.map(({ path: fp, mtimeMs }) => `${path.basename(fp)}:${mtimeMs}`).join('|');
+}
 
 let buildPromise = null;
 
 async function ensureCache() {
   let cache = await readJson(CACHE_PATH, {
     generatedAt: null,
-    logMTime: 0,
+    logSignature: '',
     perCodename: {}
   });
 
-  let logStat;
-  try {
-    logStat = await fs.stat(LOG_PATH);
-  } catch (err) {
-    if (err.code === 'ENOENT') {
-      if (!cache.generatedAt) {
-        cache.generatedAt = new Date().toISOString();
-        await writeJson(CACHE_PATH, cache);
-      }
-      return cache;
+  const logFiles = await listLogFiles();
+  const signature = buildSignature(logFiles);
+
+  if (!signature) {
+    if (!cache.generatedAt) {
+      cache.generatedAt = new Date().toISOString();
+      cache.perCodename = {};
+      cache.logSignature = '';
+      await writeJson(CACHE_PATH, cache);
     }
-    throw err;
+    return cache;
   }
 
-  if (!cache.logMTime || cache.logMTime < logStat.mtimeMs) {
+  if (cache.logSignature !== signature) {
     if (!buildPromise) {
-      buildPromise = buildReportCache(LOG_PATH)
+      const logPaths = logFiles.map((file) => file.path);
+      buildPromise = buildReportCache(logPaths)
         .then(async (newCache) => {
-          await writeJson(CACHE_PATH, newCache);
-          cache = newCache;
-          return newCache;
+          const enriched = { ...newCache, logSignature: signature };
+          await writeJson(CACHE_PATH, enriched);
+          cache = enriched;
+          return enriched;
         })
         .finally(() => {
           buildPromise = null;

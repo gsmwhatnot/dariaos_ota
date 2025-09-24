@@ -22,10 +22,7 @@ function toDateKey(tsMs) {
   return date.toISOString().slice(0, 10);
 }
 
-async function buildDownloadCache(logPath) {
-  const totals = new Map(); // codename -> Map(version -> count)
-  const daily = new Map(); // day -> Map(codename::version -> count)
-
+async function processLogFile(logPath, totals, daily) {
   await new Promise((resolve, reject) => {
     const stream = fs.createReadStream(logPath, { encoding: 'utf8' });
     const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
@@ -63,6 +60,23 @@ async function buildDownloadCache(logPath) {
     rl.once('close', resolve);
     rl.once('error', reject);
   });
+}
+
+async function buildDownloadCache(logPaths) {
+  const totals = new Map(); // codename -> Map(version -> count)
+  const daily = new Map(); // day -> Map(codename::version -> count)
+
+  const paths = Array.isArray(logPaths) ? logPaths : [logPaths];
+  for (const logPath of paths) {
+    try {
+      await processLogFile(logPath, totals, daily);
+    } catch (err) {
+      if (err.code === 'ENOENT') {
+        continue;
+      }
+      throw err;
+    }
+  }
 
   const totalsObj = {};
   totals.forEach((versionMap, codename) => {

@@ -10,18 +10,23 @@ function formatEntry(payload) {
   return JSON.stringify(enriched) + '\n';
 }
 
+function buildLogPath(prefix) {
+  const date = new Date().toISOString().slice(0, 10);
+  return path.join(config.paths.logs, `${prefix}_${date}.jsonl`);
+}
+
 async function appendApiLog(payload) {
-  const filePath = path.join(config.paths.logs, 'api-access.jsonl');
+  const filePath = buildLogPath('api');
   await fs.appendFile(filePath, formatEntry(payload), 'utf8');
 }
 
 async function appendAdminLog(payload) {
-  const filePath = path.join(config.paths.logs, 'admin-audit.jsonl');
+  const filePath = buildLogPath('audit');
   await fs.appendFile(filePath, formatEntry(payload), 'utf8');
 }
 
 async function appendDownloadLog(payload) {
-  const filePath = path.join(config.paths.logs, 'download-access.jsonl');
+  const filePath = buildLogPath('download');
   await fs.appendFile(filePath, formatEntry(payload), 'utf8');
 }
 
