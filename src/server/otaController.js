@@ -40,11 +40,17 @@ function computeDistance(fullBuilds, currentIncremental, targetIncremental) {
   return targetIndex - currentIndex;
 }
 
+function generateFallbackSerial() {
+  const digits = Array.from({ length: 13 }, () => Math.floor(Math.random() * 10)).join('');
+  return `OLDOTA${digits}`;
+}
+
 async function handleOtaRequest(req, res, params) {
   const codename = params.codename;
   const channel = normalizeChannel(params.channel);
   const currentIncremental = params.currentVersion;
-  const serial = params.serial;
+  const providedSerial = typeof params.serial === 'string' ? params.serial.trim() : '';
+  const serial = providedSerial || generateFallbackSerial();
 
   const builds = await catalogStore.listBuilds(codename, channel);
   const published = builds.filter((b) => b.publish);
@@ -127,6 +133,7 @@ async function handleOtaRequest(req, res, params) {
     channel,
     currentIncremental,
     serial,
+    serialWasFallback: !providedSerial,
     decision: decision.type,
     targetIncrementals: responsePayloads.map((p) => p.incremental),
     mandatory: decision.mandatory,
