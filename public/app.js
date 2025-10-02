@@ -2175,7 +2175,8 @@ function resolveUrl(path) {
       const versionsSummary = Array.isArray(state.report.data.summary.versions)
         ? [...state.report.data.summary.versions]
         : [];
-      versionsSummary.sort((a, b) => b.count - a.count).slice(0, 4).forEach((item) => {
+      // increase/decrease 128 to view as many popular versions as you want in Reports page.
+      versionsSummary.sort((a, b) => b.count - a.count).slice(0, 128).forEach((item) => {
         const li = document.createElement('li');
         li.textContent = `${item.incremental}: ${item.count}`;
         versionList.appendChild(li);
