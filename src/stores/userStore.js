@@ -38,7 +38,7 @@ class UserStore {
   }
 
   async _withData(fn) {
-    this._queue = this._queue.then(async () => {
+    const run = this._queue.then(async () => {
       const data = await readJson(this.filePath, DEFAULT_DATA);
       const result = await fn(data);
       if (result && result.modified) {
@@ -46,7 +46,10 @@ class UserStore {
       }
       return result ? result.value : undefined;
     });
-    return this._queue;
+
+    this._queue = run.then(() => undefined, () => undefined);
+
+    return run;
   }
 
   async listUsers() {

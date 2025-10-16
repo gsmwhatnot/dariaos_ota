@@ -9,8 +9,12 @@ const router = express.Router();
 
 router.get('/', handleListUsers);
 router.post('/', handleCreateUser);
-router.patch('/:username', (req, res) => {
-  handleUpdateUser(req, res, { username: req.params.username });
+router.patch('/:username', async (req, res, next) => {
+  try {
+    await handleUpdateUser(req, res, { username: req.params.username });
+  } catch (err) {
+    next(err);
+  }
 });
 
 module.exports = router;

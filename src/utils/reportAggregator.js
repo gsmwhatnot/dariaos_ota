@@ -56,6 +56,10 @@ async function processLogFile(logPath, summaryPerCodename, dailyPerCodename) {
       if (!codename || !serial || !currentIncremental) {
         return;
       }
+      const fallbackSerial = entry.serialWasFallback || (typeof serial === 'string' && serial.startsWith('OLDOTA'));
+      if (fallbackSerial) {
+        return;
+      }
       const timestampMs = parseTimestamp(entry);
       const dayKey = toDateKey(timestampMs);
 
