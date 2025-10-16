@@ -8,14 +8,17 @@ const DEFAULT_DAYS = 7;
 const MAX_DAYS = 30;
 
 function buildGraphData(daily, days) {
-  const today = new Date();
-  const cutoff = new Date(today.getTime() - (days - 1) * 24 * 60 * 60 * 1000);
+  const anchor = new Date();
+  anchor.setHours(0, 0, 0, 0);
+  anchor.setDate(anchor.getDate() - 1);
+  const cutoff = new Date(anchor.getTime() - (days - 1) * 24 * 60 * 60 * 1000);
   const graph = [];
   const dateKeys = Object.keys(daily).sort();
   dateKeys.forEach((dateKey) => {
     const date = new Date(dateKey);
     if (Number.isNaN(date.getTime())) return;
     if (date < cutoff) return;
+    if (date > anchor) return;
     graph.push({
       date: dateKey,
       versions: (daily[dateKey] || []).map(({ incremental, count }) => ({ incremental, count }))
@@ -24,7 +27,7 @@ function buildGraphData(daily, days) {
   // Ensure we return exactly `days` entries (fill missing with zero counts)
   const result = [];
   for (let offset = days - 1; offset >= 0; offset -= 1) {
-    const current = new Date(today.getTime() - offset * 24 * 60 * 60 * 1000);
+    const current = new Date(anchor.getTime() - offset * 24 * 60 * 60 * 1000);
     const key = current.toISOString().slice(0, 10);
     const existing = graph.find((entry) => entry.date === key);
     if (existing) {

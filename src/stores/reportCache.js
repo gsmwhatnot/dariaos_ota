@@ -17,7 +17,16 @@ async function listLogFiles() {
     }
     throw err;
   }
-  const candidates = entries.filter((name) => name.startsWith(LOG_PREFIX) && name.endsWith('.jsonl'));
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const candidates = entries.filter((name) => {
+    if (!name.startsWith(LOG_PREFIX) || !name.endsWith('.jsonl')) {
+      return false;
+    }
+    if (name.includes(todayKey)) {
+      return false;
+    }
+    return true;
+  });
   candidates.sort();
 
   const stats = [];
