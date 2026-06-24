@@ -875,6 +875,19 @@ function resolveUrl(path) {
     }
   }
 
+  async function deleteBuild(build) {
+    try {
+      await apiRequest(`/api/catalog/${encodeURIComponent(state.selectedCodename)}/${encodeURIComponent(state.selectedChannel)}/${encodeURIComponent(build.id)}`, {
+        method: 'DELETE'
+      });
+      state.builds = state.builds.filter((item) => item.id !== build.id);
+      setFlash(`Deleted ${build.type} build ${build.payload.incremental}`, 'success');
+      render();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   async function loadReport(codename, days) {
     if (!codename) return;
     try {
@@ -1643,6 +1656,13 @@ function resolveUrl(path) {
         editBtn.textContent = 'Edit';
         editBtn.addEventListener('click', () => openEditModal(build));
         actions.appendChild(editBtn);
+        if (hasRole('maintainer')) {
+          const deleteBtn = document.createElement('button');
+          deleteBtn.className = 'button secondary';
+          deleteBtn.textContent = 'Delete';
+          deleteBtn.addEventListener('click', () => openDeleteBuildModal(build));
+          actions.appendChild(deleteBtn);
+        }
         row.appendChild(actions);
 
         tbody.appendChild(row);
@@ -1795,6 +1815,56 @@ function resolveUrl(path) {
     form.appendChild(actionRow);
 
     modal.appendChild(form);
+    backdrop.appendChild(modal);
+    document.body.appendChild(backdrop);
+  }
+
+  function openDeleteBuildModal(build) {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+
+    const title = document.createElement('h3');
+    title.textContent = `Delete ${build.type} build`;
+    modal.appendChild(title);
+
+    const summary = document.createElement('p');
+    summary.textContent = build.type === 'delta' && build.baseIncremental
+      ? `${build.baseIncremental} > ${build.payload.incremental}`
+      : build.payload.incremental;
+    modal.appendChild(summary);
+
+    const warning = document.createElement('p');
+    warning.className = 'muted';
+    warning.textContent = build.type === 'full'
+      ? 'Delete related delta builds first. This will remove the catalog entry, changelog data, download URL, and ZIP file.'
+      : 'This will remove the catalog entry, changelog data, download URL, and ZIP file.';
+    modal.appendChild(warning);
+
+    const actionRow = document.createElement('div');
+    actionRow.className = 'form-actions';
+
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.className = 'button secondary';
+    cancel.textContent = 'Cancel';
+    cancel.addEventListener('click', () => document.body.removeChild(backdrop));
+
+    const confirm = document.createElement('button');
+    confirm.type = 'button';
+    confirm.className = 'button';
+    confirm.textContent = 'Delete';
+    confirm.addEventListener('click', () => {
+      deleteBuild(build);
+      document.body.removeChild(backdrop);
+    });
+
+    actionRow.appendChild(cancel);
+    actionRow.appendChild(confirm);
+    modal.appendChild(actionRow);
+
     backdrop.appendChild(modal);
     document.body.appendChild(backdrop);
   }

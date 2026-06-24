@@ -2,7 +2,8 @@ const express = require('express');
 const {
   handleListCodenames,
   handleListBuilds,
-  handleUpdateBuild
+  handleUpdateBuild,
+  handleDeleteBuild
 } = require('../server/buildsController');
 
 const router = express.Router();
@@ -20,6 +21,14 @@ router.patch('/:codename/:channel/:buildId', async (req, res, next) => {
   try {
     const { codename, channel, buildId } = req.params;
     await handleUpdateBuild(req, res, { codename, channel, buildId });
+  } catch (err) {
+    next(err);
+  }
+});
+router.delete('/:codename/:channel/:buildId', async (req, res, next) => {
+  try {
+    const { codename, channel, buildId } = req.params;
+    await handleDeleteBuild(req, res, { codename, channel, buildId });
   } catch (err) {
     next(err);
   }
