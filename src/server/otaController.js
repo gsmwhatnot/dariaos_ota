@@ -4,6 +4,7 @@ const config = require('../config');
 const { compareVersions, isNewerThan } = require('../utils/version');
 const { sendJson } = require('./httpUtils');
 const { normalizeDownloadUrl } = require('../utils/url');
+const { isSerialAllowed } = require('../utils/serialAllowlist');
 
 function normalizeChannel(channel) {
   return String(channel || '').toLowerCase();
@@ -53,7 +54,7 @@ async function handleOtaRequest(req, res, params) {
   const serial = providedSerial || generateFallbackSerial();
 
   const builds = await catalogStore.listBuilds(codename, channel);
-  const published = builds.filter((b) => b.publish);
+  const published = builds.filter((b) => b.publish && isSerialAllowed(b, serial));
   const fullBuilds = published.filter((b) => b.type === 'full');
 
   const decision = {

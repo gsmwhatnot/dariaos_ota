@@ -8,6 +8,7 @@ const { parsePropContent } = require('../utils/propParser');
 const { parseFullFilename, parseDeltaFilename } = require('../utils/firmwareNaming');
 const { saveStreamToFile } = require('../utils/streamHelpers');
 const { buildDownloadUrl, normalizeDownloadUrl } = require('../utils/url');
+const { parseSerialAllowlist } = require('../utils/serialAllowlist');
 const catalogStore = require('../stores/catalogStore');
 const { compareVersions } = require('../utils/version');
 const { appendAdminLog } = require('../stores/logStore');
@@ -293,6 +294,7 @@ async function handleFirmwareUpload(req, res) {
       const publishFull = boolField(fields.publishFull);
       const publishDelta = boolField(fields.publishDelta);
       const mandatoryFull = boolField(fields.mandatoryFull);
+      const serialAllowlist = parseSerialAllowlist(fields.serialAllowlist);
 
       const fullTargetPath = path.join(fullDir, files.full.filename);
       try {
@@ -329,6 +331,7 @@ async function handleFirmwareUpload(req, res) {
         payload: fullPayload,
         publish: publishFull,
         mandatory: mandatoryFull,
+        serialAllowlist,
         file: {
           path: path.relative(config.paths.uploads, fullTargetPath),
           size: files.full.size,
@@ -394,6 +397,7 @@ async function handleFirmwareUpload(req, res) {
           payload: deltaPayload,
           publish: publishDelta,
           mandatory: false,
+          serialAllowlist,
           file: {
             path: path.relative(config.paths.uploads, deltaTargetPath),
             size: files.delta.size,

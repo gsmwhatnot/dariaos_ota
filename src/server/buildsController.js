@@ -4,10 +4,12 @@ const catalogStore = require('../stores/catalogStore');
 const { appendAdminLog } = require('../stores/logStore');
 const { extractRequestMeta } = require('./requestMeta');
 const { normalizeDownloadUrl } = require('../utils/url');
+const { parseSerialAllowlist } = require('../utils/serialAllowlist');
 
 function normalizeBuild(build) {
   return {
     ...build,
+    serialAllowlist: Array.isArray(build.serialAllowlist) ? build.serialAllowlist : [],
     updatetype: build.type,
     payload: {
       ...build.payload,
@@ -46,6 +48,9 @@ async function handleUpdateBuild(req, res, params) {
   if (Object.prototype.hasOwnProperty.call(body, 'mandatory')) {
     updates.mandatory = Boolean(body.mandatory);
   }
+  if (Object.prototype.hasOwnProperty.call(body, 'serialAllowlist')) {
+    updates.serialAllowlist = parseSerialAllowlist(body.serialAllowlist);
+  }
   const payloadUpdates = {};
   if (Object.prototype.hasOwnProperty.call(body, 'url')) {
     const trimmedUrl = String(body.url || '').trim();
@@ -69,7 +74,18 @@ async function handleUpdateBuild(req, res, params) {
     return;
   }
 
-  const updatedBuild = await catalogStore.updateBuild(params.codename, params.channel, params.buildId, updates);
+  let updatedBuild = await catalogStore.updateBuild(params.codename, params.channel, params.buildId, updates);
+  let affectedBuilds = [updatedBuild];
+
+  if (Object.prototype.hasOwnProperty.call(updates, 'serialAllowlist')) {
+    affectedBuilds = await catalogStore.updateBuildsByIncremental(
+      params.codename,
+      params.channel,
+      updatedBuild.payload.incremental,
+      { serialAllowlist: updates.serialAllowlist }
+    );
+    updatedBuild = affectedBuilds.find((item) => item.id === params.buildId) || updatedBuild;
+  }
 
   if (build.type === 'full' && body.changesHtml) {
     const builds = await catalogStore.listBuilds(params.codename, params.channel);
@@ -89,7 +105,10 @@ async function handleUpdateBuild(req, res, params) {
     ...extractRequestMeta(req)
   });
 
-  sendJson(res, 200, { build: normalizeBuild(updatedBuild) });
+  sendJson(res, 200, {
+    build: normalizeBuild(updatedBuild),
+    affectedBuilds: affectedBuilds.map((item) => normalizeBuild(item))
+  });
 }
 
 module.exports = {

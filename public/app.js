@@ -15,6 +15,7 @@
       publishFull: false,
       publishDelta: false,
       mandatory: false,
+      serialAllowlist: '',
       confirmed: false,
       status: null,
       ...overrides
@@ -839,11 +840,35 @@ function resolveUrl(path) {
         body: payload
       });
       const updated = data.build;
-      const index = state.builds.findIndex((b) => b.id === build.id);
-      if (index !== -1) {
-        state.builds[index] = updated;
-      }
+      const affected = Array.isArray(data.affectedBuilds) && data.affectedBuilds.length ? data.affectedBuilds : [updated];
+      affected.forEach((item) => {
+        const index = state.builds.findIndex((b) => b.id === item.id);
+        if (index !== -1) {
+          state.builds[index] = item;
+        }
+      });
       setFlash('Build updated', 'success');
+      render();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function updateSerialAllowlist(build, serialText) {
+    try {
+      const data = await apiRequest(`/api/catalog/${encodeURIComponent(state.selectedCodename)}/${encodeURIComponent(state.selectedChannel)}/${encodeURIComponent(build.id)}`, {
+        method: 'PATCH',
+        body: { serialAllowlist: serialText }
+      });
+      const affected = Array.isArray(data.affectedBuilds) && data.affectedBuilds.length ? data.affectedBuilds : [data.build];
+      affected.forEach((item) => {
+        const index = state.builds.findIndex((b) => b.id === item.id);
+        if (index !== -1) {
+          state.builds[index] = item;
+        }
+      });
+      const count = Array.isArray(data.build.serialAllowlist) ? data.build.serialAllowlist.length : 0;
+      setFlash(count ? `Serial filter updated (${count} serial${count === 1 ? '' : 's'})` : 'Serial filter cleared; build is public', 'success');
       render();
     } catch (err) {
       setError(err.message);
@@ -1006,6 +1031,11 @@ function resolveUrl(path) {
     if (state.uploading.status && state.uploading.status.loading) {
       return;
     }
+    if (!state.uploading.confirmed) {
+      state.uploading.status = { loading: false, error: 'Review and confirm the upload before submitting.', result: null };
+      render();
+      return;
+    }
     try {
       await runUploadPreflightChecks();
     } catch (err) {
@@ -1025,6 +1055,7 @@ function resolveUrl(path) {
     fd.append('publishFull', up.publishFull ? 'true' : 'false');
     fd.append('publishDelta', up.publishDelta ? 'true' : 'false');
     fd.append('mandatoryFull', up.mandatory ? 'true' : 'false');
+    fd.append('serialAllowlist', up.serialAllowlist || '');
 
     state.uploading.status = { loading: true, error: null, result: null, progress: 0 };
     render();
@@ -1447,7 +1478,16 @@ function resolveUrl(path) {
     return container;
   }
 
+  function formatSerialAllowlist(build) {
+    return Array.isArray(build.serialAllowlist) ? build.serialAllowlist.join(', ') : '';
+  }
+
+  function serialAllowlistCount(build) {
+    return Array.isArray(build.serialAllowlist) ? build.serialAllowlist.length : 0;
+  }
+
   function renderBuilds() {
+
     const container = document.createElement('div');
     const card = document.createElement('div');
     card.className = 'card';
@@ -1516,7 +1556,7 @@ function resolveUrl(path) {
       table.className = 'table';
       const thead = document.createElement('thead');
       const headerRow = document.createElement('tr');
-      ['Incremental', 'OS Version', 'Publish', 'Mandatory', 'URL', 'Size', `Updated (${formattedOffset})`, 'Actions'].forEach((label) => {
+      ['Incremental', 'OS Version', 'Publish', 'Mandatory', 'URL', 'Size', `Updated (${formattedOffset})`, 'Serial No.', 'Actions'].forEach((label) => {
         const th = document.createElement('th');
         th.textContent = label;
         headerRow.appendChild(th);
@@ -1581,6 +1621,20 @@ function resolveUrl(path) {
         const updated = build.updatedAt ? new Date(build.updatedAt).toLocaleString() : '';
         updatedCell.textContent = updated;
         row.appendChild(updatedCell);
+
+        const serialCell = document.createElement('td');
+        const serialButton = document.createElement('button');
+        serialButton.type = 'button';
+        serialButton.className = 'button secondary';
+        serialButton.textContent = 'Serial No.';
+        serialButton.addEventListener('click', () => openSerialModal(build));
+        const serialStatus = document.createElement('div');
+        serialStatus.className = 'muted';
+        const serialCount = serialAllowlistCount(build);
+        serialStatus.textContent = serialCount ? `${serialCount} allowed` : 'Public';
+        serialCell.appendChild(serialButton);
+        serialCell.appendChild(serialStatus);
+        row.appendChild(serialCell);
 
         const actions = document.createElement('td');
         actions.className = 'table-actions';
@@ -1660,6 +1714,83 @@ function resolveUrl(path) {
     save.className = 'button';
     save.textContent = 'Save Changes';
     actionRow.appendChild(cancel);
+    actionRow.appendChild(save);
+    form.appendChild(actionRow);
+
+    modal.appendChild(form);
+    backdrop.appendChild(modal);
+    document.body.appendChild(backdrop);
+  }
+
+  function openSerialModal(build) {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+
+    const title = document.createElement('h3');
+    title.textContent = `Serial No. for ${build.payload.incremental}`;
+    modal.appendChild(title);
+
+    const form = document.createElement('form');
+    form.addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      updateSerialAllowlist(build, form.elements.serialAllowlist.value);
+      document.body.removeChild(backdrop);
+    });
+
+    const label = document.createElement('label');
+    label.textContent = 'Allowed serial numbers';
+    form.appendChild(label);
+
+    const textarea = document.createElement('textarea');
+    textarea.name = 'serialAllowlist';
+    textarea.rows = 6;
+    textarea.placeholder = 'SERIAL001, SERIAL002, SERIAL003';
+    textarea.value = formatSerialAllowlist(build);
+    form.appendChild(textarea);
+
+    const helper = document.createElement('p');
+    helper.className = 'muted';
+    helper.textContent = 'Comma-delimited. Leave empty to make this update available to everyone.';
+    form.appendChild(helper);
+
+    const count = document.createElement('p');
+    count.className = 'muted';
+    const refreshCount = () => {
+      const serials = textarea.value.split(',').map((item) => item.trim()).filter(Boolean);
+      count.textContent = serials.length ? `${new Set(serials).size} serial${new Set(serials).size === 1 ? '' : 's'} entered` : 'Public rollout';
+    };
+    textarea.addEventListener('input', refreshCount);
+    refreshCount();
+    form.appendChild(count);
+
+    const actionRow = document.createElement('div');
+    actionRow.className = 'form-actions';
+
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.className = 'button secondary';
+    cancel.textContent = 'Cancel';
+    cancel.addEventListener('click', () => document.body.removeChild(backdrop));
+
+    const clear = document.createElement('button');
+    clear.type = 'button';
+    clear.className = 'button secondary';
+    clear.textContent = 'Clear';
+    clear.addEventListener('click', () => {
+      updateSerialAllowlist(build, '');
+      document.body.removeChild(backdrop);
+    });
+
+    const save = document.createElement('button');
+    save.type = 'submit';
+    save.className = 'button';
+    save.textContent = 'Save';
+
+    actionRow.appendChild(cancel);
+    actionRow.appendChild(clear);
     actionRow.appendChild(save);
     form.appendChild(actionRow);
 
@@ -1752,6 +1883,7 @@ function resolveUrl(path) {
         state.uploading.publishFull = false;
         state.uploading.publishDelta = false;
         state.uploading.mandatory = false;
+        state.uploading.serialAllowlist = '';
         state.uploading.confirmed = false;
         state.uploading.status = null;
         state.uploading.step = 1;
@@ -2064,6 +2196,26 @@ function resolveUrl(path) {
       });
       controlsBlock.appendChild(publishDeltaField.element);
     }
+
+    const serialLabel = document.createElement('label');
+    serialLabel.textContent = 'Serial No.';
+    controlsBlock.appendChild(serialLabel);
+
+    const serialTextarea = document.createElement('textarea');
+    serialTextarea.rows = 4;
+    serialTextarea.placeholder = 'SERIAL001, SERIAL002, SERIAL003';
+    serialTextarea.value = state.uploading.serialAllowlist || '';
+    serialTextarea.addEventListener('input', (ev) => {
+      state.uploading.serialAllowlist = ev.target.value;
+      state.uploading.confirmed = false;
+      state.uploading.status = null;
+    });
+    controlsBlock.appendChild(serialTextarea);
+
+    const serialHelp = document.createElement('p');
+    serialHelp.className = 'muted';
+    serialHelp.textContent = 'Optional comma-delimited serial list. Leave empty to make this update available to everyone.';
+    controlsBlock.appendChild(serialHelp);
 
     const acknowledgement = createToggleField({
       label: 'I have reviewed the summary and understand the risks of publishing this firmware.',

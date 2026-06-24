@@ -109,6 +109,7 @@ class CatalogStore {
       payload,
       publish: Boolean(build.publish),
       mandatory: Boolean(build.mandatory),
+      serialAllowlist: Array.isArray(build.serialAllowlist) ? build.serialAllowlist : [],
       file: build.file || null,
       changelogSourceId: build.changelogSourceId || null,
       createdAt: timestamp,
@@ -146,12 +147,41 @@ class CatalogStore {
         payload: updatedPayload,
         publish: typeof updates.publish === 'boolean' ? updates.publish : build.publish,
         mandatory: typeof updates.mandatory === 'boolean' ? updates.mandatory : build.mandatory,
+        serialAllowlist: Array.isArray(updates.serialAllowlist) ? updates.serialAllowlist : (Array.isArray(build.serialAllowlist) ? build.serialAllowlist : []),
         file: updates.file ? { ...build.file, ...updates.file } : build.file,
         changelogSourceId: typeof updates.changelogSourceId === 'string' ? updates.changelogSourceId : build.changelogSourceId,
         updatedAt: timestamp
       };
       channelEntry.builds[idx] = updatedBuild;
       return { value: updatedBuild, modified: true };
+    });
+  }
+
+  async updateBuildsByIncremental(codename, channel, incremental, updates) {
+    const timestamp = Date.now();
+    return this._withData(async (data) => {
+      const codenameEntry = data.codenames[codename];
+      if (!codenameEntry) {
+        return { value: [] };
+      }
+      const channelEntry = codenameEntry.channels[channel];
+      if (!channelEntry) {
+        return { value: [] };
+      }
+      const updated = [];
+      channelEntry.builds = channelEntry.builds.map((build) => {
+        if (!build.payload || build.payload.incremental !== incremental) {
+          return build;
+        }
+        const updatedBuild = {
+          ...build,
+          serialAllowlist: Array.isArray(updates.serialAllowlist) ? updates.serialAllowlist : (Array.isArray(build.serialAllowlist) ? build.serialAllowlist : []),
+          updatedAt: timestamp
+        };
+        updated.push(updatedBuild);
+        return updatedBuild;
+      });
+      return { value: updated, modified: updated.length > 0 };
     });
   }
 
